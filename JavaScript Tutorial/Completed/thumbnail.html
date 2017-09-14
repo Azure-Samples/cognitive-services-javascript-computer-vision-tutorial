@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Thumbnail</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="page">
+    <div class="title"><h2>Thumbnail</h2></div>
+    <div class="container">
+        <div class="navigation">
+            Select a feature:
+            <ul>
+              <li><a href="analyze.html"     id="analyzeLink">Analyze</a></li>
+              <li><a href="landmark.html"    id="landmarkLink">Landmark</a></li>
+              <li><a href="celebrities.html" id="celebritiesLink">Celebrity</a></li>
+              <li><a href="thumbnail.html"   id="thumbnailLink">Thumbnail</a></li>
+              <li><a href="ocr.html"         id="ocrLink">OCR</a></li>
+              <li><a href="handwriting.html" id="handwritingLink">Read Handwritten Text</a></li>
+            </ul>
+        </div>
+        <div class="userInterface">
+            Enter the URL to an image to use to create a thumbnail image, then click the <strong>Generate Thumbnail</strong> button.
+            <br><br>
+            Image for thumbnail: <input type="text" name="inputImage" id="inputImage" value="http://i.imgur.com/2QWVNqj.jpg" />
+            <button onclick="thumbnailButtonClick()">Generate Thumbnails</button>
+            <br><br>
+            <div class="wrapper">
+                <div class="jsonOutput">
+                    Response:
+                    <br><br>
+                    <textarea id="responseTextArea" class="UIInput"></textarea>
+                </div>
+                <div class="pad"></div>
+                <div class="imageDiv">
+                    Source image:<br>
+                    <span id="captionSpan"></span><br>
+                    <img id="sourceImage" onerror="common.imageLoadError()"/>
+                </div>
+                <div class="pad"></div>
+                <div class="thumbnailDiv">
+                    Thumbnail (smartCrop=true):
+                    <br><br>
+                    <img class="thumbnailImg" id="thumbnailImageSmartCrop" />
+                    <br><br><br>
+                    Thumbnail (smartCrop=false):
+                    <img class="thumbnailImg" id="thumbnailImageNonSmartCrop" />
+                </div>
+            </div>
+            <div class="subKeyDiv">
+                Subscription Key: 
+                <input 
+                    type="text" 
+                    class="subKeyInput" 
+                    name="subscriptionKeyInput" 
+                    id="subscriptionKeyInput" 
+                    onchange="common.subscriptionChange()" 
+                    value="Copy/paste your subscription key here." />
+                Subscription Region: 
+                <select name="subscriptionRegionSelect" id="subscriptionRegionSelect" onchange="common.subscriptionChange()">
+                    <option value="westcentralus">westcentralus</option>
+                    <option value="westus">westus</option>
+                    <option value="eastus2">eastus2</option>
+                    <option value="westeurope">westeurope</option>
+                    <option value="southeastasia">southeastasia</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+<script type="text/javascript" src="common.js"></script>
+
+<script type="text/javascript">
+
+function thumbnailButtonClick() {
+
+    // Clear the display fields.
+    document.getElementById("sourceImage").src = "#";
+    document.getElementById("thumbnailImageSmartCrop").src = "#";
+    document.getElementById("thumbnailImageNonSmartCrop").src = "#";
+    document.getElementById("responseTextArea").value = "";
+    document.getElementById("captionSpan").text = "";
+    
+    // Display the image.
+    var sourceImageUrl = document.getElementById("inputImage").value;
+    document.getElementById("sourceImage").src = sourceImageUrl;
+    
+    // Get a smart cropped thumbnail.
+    getThumbnail (sourceImageUrl, true, document.getElementById("thumbnailImageSmartCrop"), 
+        document.getElementById("responseTextArea"));
+    
+    // Get a non-smart-cropped thumbnail.
+    getThumbnail (sourceImageUrl, false, document.getElementById("thumbnailImageNonSmartCrop"),
+        document.getElementById("responseTextArea"));
+}
+
+/* Get a thumbnail of the image at the specified URL by using Microsoft Cognitive Services
+ * Thumbnail API.
+ * @param {string} sourceImageUrl URL to image.
+ * @param {boolean} smartCropping Set to true to use the smart cropping feature which crops to the
+ *                                more interesting area of an image; false to crop for the center
+ *                                of the image.
+ * @param {<img> element} imageElement The img element in the DOM which will display the thumnail image.
+ * @param {<textarea> element} responseTextArea - The text area to display the Response Headers returned
+ *                             from the REST API call, or to display the error message if there was 
+ *                             an error.
+ */
+function getThumbnail (sourceImageUrl, smartCropping, imageElement, responseTextArea) {
+    // Create the HTTP Request object.
+    var xhr = new XMLHttpRequest();
+    
+    // Request parameters.
+    var params = "width=100&height=150&smartCropping=" + smartCropping.toString();
+
+    // Build the full URI.
+    var fullUri = common.uriBasePreRegion + 
+                  document.getElementById("subscriptionRegionSelect").value + 
+                  common.uriBasePostRegion + 
+                  common.uriBaseThumbnail +
+                  "?" + 
+                  params;
+    
+    // Identify the request as a POST, with the URI and parameters.
+    xhr.open("POST", fullUri);
+    
+    // Add the request headers.
+    xhr.setRequestHeader("Content-Type","application/json");
+    xhr.setRequestHeader("Ocp-Apim-Subscription-Key", 
+        encodeURIComponent(document.getElementById("subscriptionKeyInput").value));
+    
+    // Set the response type to "blob" for the thumbnail image data.
+    xhr.responseType = "blob";
+    
+    // Process the result of the REST API call.
+    xhr.onreadystatechange = function(e) {
+        if(xhr.readyState === XMLHttpRequest.DONE) {
+            
+            // Thumbnail successfully created.
+            if (xhr.status === 200) {
+                // Show response headers.
+                var s = JSON.stringify(xhr.getAllResponseHeaders(), null, 2);
+                responseTextArea.value = JSON.stringify(xhr.getAllResponseHeaders(), null, 2);
+                
+                // Show thumbnail image.
+                var urlCreator = window.URL || window.webkitURL;
+                var imageUrl = urlCreator.createObjectURL(this.response);
+                imageElement.src = imageUrl;
+            } else {
+                // Display the error message. The error message is the response body as a JSON string. 
+                // The code in this code block extracts the JSON string from the blob response.
+                var reader = new FileReader();
+                
+                // This event fires after the blob has been read.
+                reader.addEventListener('loadend', (e) => {
+                    responseTextArea.value = JSON.stringify(JSON.parse(e.srcElement.result), null, 2);
+                });
+                
+                // Start reading the blob as text.
+                reader.readAsText(xhr.response);
+            }
+        }
+    }
+    
+    // Execute the REST API call.
+    xhr.send('{"url": ' + '"' + sourceImageUrl + '"}');
+}
+
+</script>

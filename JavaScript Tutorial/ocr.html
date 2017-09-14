@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OCR</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="page">
+    <div class="title"><h2>Optical Character Recognition (OCR)</h2></div>
+    <div class="container">
+        <div class="navigation">
+            Select a feature:
+            <ul>
+              <li><a href="analyze.html"     id="analyzeLink">Analyze</a></li>
+              <li><a href="landmark.html"    id="landmarkLink">Landmark</a></li>
+              <li><a href="celebrities.html" id="celebritiesLink">Celebrity</a></li>
+              <li><a href="thumbnail.html"   id="thumbnailLink">Thumbnail</a></li>
+              <li><a href="ocr.html"         id="ocrLink">OCR</a></li>
+              <li><a href="handwriting.html" id="handwritingLink">Read Handwritten Text</a></li>
+            </ul>
+        </div>
+        <div class="userInterface">
+            Enter the URL to an image of printed text, then click the <strong>Read Image</strong> button.
+            <br><br>
+            Image to read: <input type="text" name="inputImage" id="inputImage" value="http://i.imgur.com/BtS8fcq.jpg" />
+            <button onclick="ocrButtonClick()">Read Image</button>
+            <br><br>
+            <div class="wrapper">
+                <div class="jsonOutput">
+                    Response:
+                    <br><br>
+                    <textarea id="responseTextArea" class="UIInput"></textarea>
+                </div>
+                <div class="pad"></div>
+                <div class="imageDiv">
+                    Source image:<br>
+                    <span id=captionSpan"></span><br>
+                    <img id="sourceImage" onerror="common.imageLoadError()"/>
+                </div>
+            </div>
+            <div class="subKeyDiv">
+                Subscription Key: 
+                <input 
+                    type="text" 
+                    class="subKeyInput" 
+                    name="subscriptionKeyInput" 
+                    id="subscriptionKeyInput" 
+                    onchange="common.subscriptionChange()" 
+                    value="Copy/paste your subscription key here." />
+                Subscription Region: 
+                <select name="subscriptionRegionSelect" id="subscriptionRegionSelect" onchange="common.subscriptionChange()">
+                    <option value="westcentralus">westcentralus</option>
+                    <option value="westus">westus</option>
+                    <option value="eastus2">eastus2</option>
+                    <option value="westeurope">westeurope</option>
+                    <option value="southeastasia">southeastasia</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+<script type="text/javascript" src="common.js"></script>
+
+<script type="text/javascript">
+
+function ocrButtonClick() {
+    // Replace these two lines with the OCR Image event handling code.
+    document.getElementById("responseTextArea").value = "The tutorial code for this feature has not been added.";
+}
+
+</script>

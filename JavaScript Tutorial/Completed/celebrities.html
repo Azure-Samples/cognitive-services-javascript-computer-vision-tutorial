@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Celebrity</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="page">
+    <div class="title"><h2>Celebrity</h2></div>
+    <div class="container">
+        <div class="navigation">
+            Select a feature:
+            <ul>
+              <li><a href="analyze.html"     id="analyzeLink">Analyze</a></li>
+              <li><a href="landmark.html"    id="landmarkLink">Landmark</a></li>
+              <li><a href="celebrities.html" id="celebritiesLink">Celebrity</a></li>
+              <li><a href="thumbnail.html"   id="thumbnailLink">Thumbnail</a></li>
+              <li><a href="ocr.html"         id="ocrLink">OCR</a></li>
+              <li><a href="handwriting.html" id="handwritingLink">Read Handwritten Text</a></li>
+            </ul>
+        </div>
+        <div class="userInterface">
+            Enter the URL to an image of a celebrity, then click the <strong>Analyze image</strong> button.
+            <br><br>
+            Celebrity image to analyze: <input type="text" name="inputImage" id="inputImage" value="https://news.microsoft.com/security2015/assets/photos/slides/satya_slide.jpg" />
+            <button onclick="celebritiesButtonClick()">Analyze Image</button>
+            <br><br>
+            <div class="wrapper">
+                <div class="jsonOutput">
+                    Response:
+                    <br><br>
+                    <textarea id="responseTextArea" class="UIInput"></textarea>
+                </div>
+                <div class="pad"></div>
+                <div class="imageDiv">
+                    Source image:<br>
+                    <span id="captionSpan"></span><br>
+                    <img id="sourceImage" onerror="common.imageLoadError()"/>
+                </div>
+            </div>
+            <div class="subKeyDiv">
+                Subscription Key: 
+                <input 
+                    type="text" 
+                    class="subKeyInput" 
+                    name="subscriptionKeyInput" 
+                    id="subscriptionKeyInput" 
+                    onchange="common.subscriptionChange()" 
+                    value="Copy/paste your subscription key here." />
+                Subscription Region: 
+                <select name="subscriptionRegionSelect" id="subscriptionRegionSelect" onchange="common.subscriptionChange()">
+                    <option value="westcentralus">westcentralus</option>
+                    <option value="westus">westus</option>
+                    <option value="eastus2">eastus2</option>
+                    <option value="westeurope">westeurope</option>
+                    <option value="southeastasia">southeastasia</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+<script type="text/javascript" src="common.js"></script>
+
+<script type="text/javascript">
+
+function celebritiesButtonClick() {
+
+    // Clear the display fields.
+    $("#sourceImage").attr("src", "#");
+    $("#responseTextArea").val("");
+    $("#captionSpan").text("");
+    
+    // Display the image.
+    var sourceImageUrl = $("#inputImage").val();
+    $("#sourceImage").attr("src", sourceImageUrl);
+    
+    IdentifyCelebrities(sourceImageUrl, $("#responseTextArea"), $("#captionSpan"));
+}
+
+/* Identify celebrities in the image at the specified URL by using Microsoft Cognitive Services 
+ * Celebrities API.
+ * @param {string} sourceImageUrl - The URL to the image to analyze for celebrities.
+ * @param {<textarea> element} responseTextArea - The text area to display the JSON string returned
+ *                             from the REST API call, or to display the error message if there was 
+ *                             an error.
+ * @param {<span> element} captionSpan - The span to display the image caption.
+ */
+function IdentifyCelebrities(sourceImageUrl, responseTextArea, captionSpan) {
+    // Request parameters.
+    var params = {
+        "model": "celebrities"
+    };
+    
+    // Perform the REST API call.
+    $.ajax({
+        url: common.uriBasePreRegion + 
+             $("#subscriptionRegionSelect").val() + 
+             common.uriBasePostRegion + 
+             common.uriBaseCelebrities +
+             "?" + 
+             $.param(params),
+                    
+        // Request headers.
+        beforeSend: function(jqXHR){
+            jqXHR.setRequestHeader("Content-Type","application/json");
+            jqXHR.setRequestHeader("Ocp-Apim-Subscription-Key", 
+                encodeURIComponent($("#subscriptionKeyInput").val()));
+        },
+        
+        type: "POST",
+        
+        // Request body.
+        data: '{"url": ' + '"' + sourceImageUrl + '"}',
+    })
+    
+    .done(function(data) {
+        // Show formatted JSON on webpage.
+        responseTextArea.val(JSON.stringify(data, null, 2));
+        
+        // Extract and display the caption and confidence from the first caption in the description object.
+        if (data.result && data.result.celebrities) {
+            var celebrity = data.result.celebrities[0];
+            
+            if (celebrity.name && celebrity.confidence) {
+                captionSpan.text("Celebrity name: " + celebrity.name +
+                    " (confidence: " + celebrity.confidence + ").");
+            }
+        }
+    })
+    
+    .fail(function(jqXHR, textStatus, errorThrown) {
+        // Prepare the error string.
+        var errorString = (errorThrown === "") ? "Error. " : errorThrown + " (" + jqXHR.status + "): ";
+        errorString += (jqXHR.responseText === "") ? "" : (jQuery.parseJSON(jqXHR.responseText).message) ? 
+            jQuery.parseJSON(jqXHR.responseText).message : jQuery.parseJSON(jqXHR.responseText).error.message;
+        
+        // Put the error JSON in the response textarea.
+        responseTextArea.val(JSON.stringify(jqXHR, null, 2));
+        
+        // Show the error message.
+        alert(errorString);
+    });
+}
+
+</script>

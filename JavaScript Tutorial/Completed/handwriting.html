@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Handwriting</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="page">
+    <div class="title"><h2>Read Handwritten Text</h2></div>
+    <div class="container">
+        <div class="navigation">
+            Select a feature:
+            <ul>
+              <li><a href="analyze.html"     id="analyzeLink">Analyze</a></li>
+              <li><a href="landmark.html"    id="landmarkLink">Landmark</a></li>
+              <li><a href="celebrities.html" id="celebritiesLink">Celebrity</a></li>
+              <li><a href="thumbnail.html"   id="thumbnailLink">Thumbnail</a></li>
+              <li><a href="ocr.html"         id="ocrLink">OCR</a></li>
+              <li><a href="handwriting.html" id="handwritingLink">Read Handwritten Text</a></li>
+            </ul>
+        </div>
+        <div class="userInterface">
+            Enter the URL to an image of handwritten text, then click the <strong>Read Image</strong> button.
+            <br><br>
+            Image to read: <input type="text" name="inputImage" id="inputImage" value="http://i.imgur.com/UgBGSe9.jpg" />
+            <button onclick="handwritingButtonClick()">Read Image</button>
+            <br><br>
+            <div class="wrapper">
+                <div class="jsonOutput">
+                    Response:
+                    <br><br>
+                    <textarea id="responseTextArea" class="UIInput"></textarea>
+                </div>
+                <div class="pad"></div>
+                <div class="imageDiv">
+                    Source image:<br>
+                    <span id="captionSpan"></span><br>
+                    <img id="sourceImage" onerror="common.imageLoadError()"/>
+                </div>
+            </div>
+            <div class="subKeyDiv">
+                Subscription Key: 
+                <input 
+                    type="text" 
+                    class="subKeyInput" 
+                    name="subscriptionKeyInput" 
+                    id="subscriptionKeyInput" 
+                    onchange="common.subscriptionChange()" 
+                    value="Copy/paste your subscription key here." />
+                Subscription Region: 
+                <select name="subscriptionRegionSelect" id="subscriptionRegionSelect" onchange="common.subscriptionChange()">
+                    <option value="westcentralus">westcentralus</option>
+                    <option value="westus">westus</option>
+                    <option value="eastus2">eastus2</option>
+                    <option value="westeurope">westeurope</option>
+                    <option value="southeastasia">southeastasia</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+<script type="text/javascript" src="common.js"></script>
+
+<script type="text/javascript">
+
+function handwritingButtonClick() {
+
+    // Clear the display fields.
+    $("#sourceImage").attr("src", "#");
+    $("#responseTextArea").val("");
+    
+    // Display the image.
+    var sourceImageUrl = $("#inputImage").val();
+    $("#sourceImage").attr("src", sourceImageUrl);
+    
+    ReadHandwrittenImage(sourceImageUrl, $("#responseTextArea"));
+}
+
+/* Recognize and read text from an image of handwriting at the specified URL by using Microsoft 
+ * Cognitive Services Recognize Handwritten Text API.
+ * @param {string} sourceImageUrl - The URL to the image to analyze for handwriting.
+ * @param {<textarea> element} responseTextArea - The text area to display the JSON string returned
+ *                             from the REST API call, or to display the error message if there was 
+ *                             an error.
+ */
+function ReadHandwrittenImage(sourceImageUrl, responseTextArea) {
+    // Request parameters.
+    var params = {
+        "handwriting": "true",
+    };
+
+    // This operation requrires two REST API calls. One to submit the image for processing,
+    // the other to retrieve the text found in the image. 
+    //
+    // Perform the first REST API call to submit the image for processing.
+    $.ajax({
+        url: common.uriBasePreRegion + 
+             $("#subscriptionRegionSelect").val() + 
+             common.uriBasePostRegion + 
+             common.uriBaseHandwriting +
+             "?" + 
+             $.param(params),
+        
+        // Request headers.
+        beforeSend: function(jqXHR){
+            jqXHR.setRequestHeader("Content-Type","application/json");
+            jqXHR.setRequestHeader("Ocp-Apim-Subscription-Key", 
+                encodeURIComponent($("#subscriptionKeyInput").val()));
+        },
+        
+        type: "POST",
+        
+        // Request body.
+        data: '{"url": ' + '"' + sourceImageUrl + '"}',
+    })
+    
+    .done(function(data, textStatus, jqXHR) {
+        // Show progress.
+        responseTextArea.val("Handwritten image submitted.");
+        
+        // Note: The response may not be immediately available. Handwriting recognition is an
+        // async operation that can take a variable amount of time depending on the length
+        // of the text you want to recognize. You may need to wait or retry this GET operation.
+        //
+        // Try once per second for up to ten seconds to receive the result.
+        var tries = 10;
+        var waitTime = 100;
+        var taskCompleted = false;
+        
+        var timeoutID = setInterval(function () { 
+            // Limit the number of calls.
+            if (--tries <= 0) {
+                window.clearTimeout(timeoutID);
+                responseTextArea.val("The response was not available in the time allowed.");
+                return;
+            }
+
+            // The "Operation-Location" in the response contains the URI to retrieve the recognized text.
+            var operationLocation = jqXHR.getResponseHeader("Operation-Location");
+            
+            // Perform the second REST API call and get the response.
+            $.ajax({
+                url: operationLocation,
+                
+                // Request headers.
+                beforeSend: function(jqXHR){
+                    jqXHR.setRequestHeader("Content-Type","application/json");
+                    jqXHR.setRequestHeader("Ocp-Apim-Subscription-Key",
+                        encodeURIComponent($("#subscriptionKeyInput").val()));
+                },
+                
+                type: "GET",
+            })
+            
+            .done(function(data) {
+                // If the result is not yet available, return.
+                if (data.status && (data.status === "NotStarted" || data.status === "Running")) {
+                    return;
+                }
+                
+                // Show formatted JSON on webpage.
+                responseTextArea.val(JSON.stringify(data, null, 2));
+                
+                // Indicate the task is complete and clear the timer.
+                taskCompleted = true;
+                window.clearTimeout(timeoutID);
+            })
+            
+            .fail(function(jqXHR, textStatus, errorThrown) {
+                // Indicate the task is complete and clear the timer.
+                taskCompleted = true;
+                window.clearTimeout(timeoutID);
+                
+                // Display error message.
+                var errorString = (errorThrown === "") ? "Error. " : errorThrown + " (" + jqXHR.status + "): ";
+                errorString += (jqXHR.responseText === "") ? "" : (jQuery.parseJSON(jqXHR.responseText).message) ? 
+                    jQuery.parseJSON(jqXHR.responseText).message : jQuery.parseJSON(jqXHR.responseText).error.message;
+                alert(errorString);
+            });
+        }, waitTime);
+    })
+    
+    .fail(function(jqXHR, textStatus, errorThrown) {
+        // Put the JSON description into the text area.
+        responseTextArea.val(JSON.stringify(jqXHR, null, 2));
+        
+        // Display error message.
+        var errorString = (errorThrown === "") ? "Error. " : errorThrown + " (" + jqXHR.status + "): ";
+        errorString += (jqXHR.responseText === "") ? "" : (jQuery.parseJSON(jqXHR.responseText).message) ? 
+            jQuery.parseJSON(jqXHR.responseText).message : jQuery.parseJSON(jqXHR.responseText).error.message;
+        alert(errorString);
+    });
+}
+
+</script>
